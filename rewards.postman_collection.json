@@ -1,0 +1,26 @@
+{
+	"info": {
+		"_postman_id": "37756f10-5881-45b3-afb5-5f18650630d8",
+		"name": "rewards",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "1292612"
+	},
+	"item": [
+		{
+			"name": "No transactions provided",
+			"request": {
+				"method": "GET",
+				"header": []
+			},
+			"response": []
+		},
+		{
+			"name": "get rewards points",
+			"request": {
+				"method": "GET",
+				"header": []
+			},
+			"response": []
+		}
+	]
+}
