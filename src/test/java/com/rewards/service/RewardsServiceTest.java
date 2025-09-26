@@ -7,68 +7,72 @@ import com.rewards.model.Transaction;
 import com.rewards.repository.TransactionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
-
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 class RewardsServiceTest {
 
-    private TransactionRepository transactionRepository;
-    private RewardsService rewardsService;
+	private TransactionRepository transactionRepository;
+	private RewardsService rewardsService;
 
-    @BeforeEach
-    void setUp() {
-        transactionRepository = Mockito.mock(TransactionRepository.class);
-        rewardsService = new RewardsService(transactionRepository);
-    }
+	@BeforeEach
+	void setUp() {
+		transactionRepository = mock(TransactionRepository.class);
+		rewardsService = new RewardsService(transactionRepository);
+	}
 
-    @Test
-    void testCalculateRewards() {
-        Transaction t1 = new Transaction("John", BigDecimal.valueOf(120), "2025-01");
-        Transaction t2 = new Transaction("John", BigDecimal.valueOf(80), "2025-02");
-        Transaction t3 = new Transaction("Jane", BigDecimal.valueOf(75), "2025-03");
+	@Test
+	void testCalculateRewards_success_multipleCustomers() {
+		// given
+		List<Transaction> transactions = new ArrayList<>();
+		transactions.add(new Transaction("Alice", BigDecimal.valueOf(120), "2025-08"));
+		transactions.add(new Transaction("Alice", BigDecimal.valueOf(80), "2025-09"));
+		transactions.add(new Transaction("Bob", BigDecimal.valueOf(200), "2025-08"));
 
-        List<Transaction> transactions = Arrays.asList(t1, t2, t3);
+		// when
+		List<CustomerRewards> result = rewardsService.calculateRewards(transactions);
 
-        List<CustomerRewards> rewards = rewardsService.calculateRewards(transactions);
+		// then
+		assertNotNull(result);
+		assertEquals(2, result.size());
 
-        assertEquals(2, rewards.size());
+		CustomerRewards alice = result.stream().filter(c -> c.getCustomerName().equals("Alice")).findFirst()
+				.orElseThrow();
 
-        CustomerRewards johnRewards = rewards.get(0);
-        assertEquals("Jane".compareTo("John") < 0 ? "Jane" : "John", johnRewards.getCustomerName()); // sorted alphabetically
-        assertTrue(johnRewards.getTotalPoints() > 0);
-        assertTrue(johnRewards.getTotalAmount().compareTo(BigDecimal.ZERO) > 0);
-        assertNotNull(johnRewards.getTotalPoints());
-        assertFalse(johnRewards.getMonthlyPoints().isEmpty());
+		assertEquals("Alice", alice.getCustomerName());
+		assertEquals(BigDecimal.valueOf(200), alice.getTotalAmount());
+		assertTrue(alice.getTotalPoints() > 0);
 
-        CustomerRewards janeRewards = rewards.get(1);
-        assertEquals("Jane".compareTo("John") < 0 ? "John" : "Jane", janeRewards.getCustomerName());
-        assertTrue(janeRewards.getTotalPoints() > 0);
-        assertTrue(janeRewards.getTotalAmount().compareTo(BigDecimal.ZERO) > 0);
-        assertNotNull(janeRewards.getTotalPoints());
-    }
+		List<MonthlyRewards> aliceMonths = alice.getMonthlyPoints();
+		assertEquals(2, aliceMonths.size());
+		assertEquals("2025-08", aliceMonths.get(0).getMonth());
+		assertEquals("2025-09", aliceMonths.get(1).getMonth());
+	}
 
-    @Test
-    void testCalculateRewardsEmptyList() {
-        List<Transaction> emptyList = List.of();
-        RewardsCalculationException exception = assertThrows(RewardsCalculationException.class,
-                () -> rewardsService.calculateRewards(emptyList));
-        assertEquals("No transactions provided", exception.getMessage());
-    }
+	@Test
+	void testCalculateRewards_emptyTransactions_throwsException() {
+		List<Transaction> transactions = List.of();
 
-    @Test
-    void testSampleTransactions() {
-        Transaction t1 = new Transaction("John", BigDecimal.valueOf(100), "2025-01");
-        when(transactionRepository.findAll()).thenReturn(List.of(t1));
+		RewardsCalculationException ex = assertThrows(RewardsCalculationException.class,
+				() -> rewardsService.calculateRewards(transactions));
 
-        List<Transaction> transactions = rewardsService.sampleTransactions();
-        assertEquals(1, transactions.size());
-        assertEquals("John", transactions.get(0).getCustomerName());
-    }
+		assertEquals("Transaction list cannot be null or empty", ex.getMessage());
+	}
+
+	@Test
+	void testSampleTransactions_repositoryDelegation() {
+		when(transactionRepository.findAll())
+				.thenReturn(Arrays.asList(new Transaction("Charlie", BigDecimal.valueOf(150), "2025-09")));
+
+		List<Transaction> result = rewardsService.sampleTransactions();
+
+		assertNotNull(result);
+		assertEquals(1, result.size());
+		assertEquals("Charlie", result.get(0).getCustomerName());
+		verify(transactionRepository, times(1)).findAll();
+	}
 }
